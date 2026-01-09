@@ -50,19 +50,15 @@ export const MOCK_USERS: User[] = [
 // === INSURANCE SCRAPER SERVICE ===
 
 export const checkUserInsuranceAccess = async (email: string) => {
-  // Simulating API check: https://api.catluna.site/mcs/api/check.php
   await new Promise(r => setTimeout(r, 800));
   return { status: 1, limit: 10000, downloads: 150 };
 };
 
 export const scrapeInsuranceData = async (dotNumber: string): Promise<InsurancePolicy[]> => {
-  // Simulating fetching from https://searchcarriers.com/company/{dot}/insurances
   await new Promise(r => setTimeout(r, 1200));
-  
   const carriers = ['Progressive', 'Berkshire Hathaway', 'Old Republic', 'Travelers', 'Geico Commercial', 'Zurich Insurance'];
   const types = ['BIPD', 'Cargo', 'Bond', 'Liability'];
   const count = randomInt(1, 3);
-  
   const policies: InsurancePolicy[] = [];
   for (let i = 0; i < count; i++) {
     policies.push({
@@ -115,6 +111,18 @@ const findMarkedLabels = (doc: Document, summary: string): string[] => {
   return labels;
 };
 
+/**
+ * Robustly finds the value associated with a specific label in SAFER's table structure.
+ */
+const findValueByLabel = (doc: Document, label: string): string => {
+  const ths = Array.from(doc.querySelectorAll('th'));
+  const targetTh = ths.find(th => th.textContent?.replace(/\u00a0/g, ' ').includes(label));
+  if (targetTh && targetTh.nextElementSibling) {
+    return targetTh.nextElementSibling.textContent?.trim().replace(/\u00a0/g, ' ') || '';
+  }
+  return '';
+};
+
 export const scrapeRealCarrier = async (mcNumber: string, useProxy: boolean): Promise<CarrierData | null> => {
   const url = `https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=MC_MX&query_string=${mcNumber}`;
   const html = await fetchUrl(url, useProxy);
@@ -122,59 +130,69 @@ export const scrapeRealCarrier = async (mcNumber: string, useProxy: boolean): Pr
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
+  
+  // Verify if it's a valid carrier snapshot page
   const center = doc.querySelector('center');
   if (!center) return null;
 
-  let crawlDate = new Date().toLocaleDateString('en-US');
-  const information = center.innerText || center.textContent || '';
+  const getVal = (label: string) => findValueByLabel(doc, label);
 
-  let entityType = '';
-  let status = '';
-  const ths = doc.querySelectorAll('th');
-  ths.forEach(th => {
-    if (th.textContent?.includes('Entity Type:')) entityType = th.nextElementSibling?.textContent?.trim() || '';
-    if (th.textContent?.includes('Operating Authority Status:')) status = th.nextElementSibling?.textContent?.trim() || '';
-  });
+  // Map fields from SAFER Table structure
+  const dotNumber = getVal('USDOT Number:');
+  const legalName = getVal('Legal Name:');
+  const dbaName = getVal('DBA Name:');
+  const entityType = getVal('Entity Type:');
+  const status = getVal('Operating Authority Status:').replace(/(\*Please Note)[\s\S]*/i, '').trim();
+  const phone = getVal('Phone:');
+  const physicalAddress = getVal('Physical Address:');
+  const mailingAddress = getVal('Mailing Address:');
+  const powerUnits = getVal('Power Units:');
+  const drivers = getVal('Drivers:');
+  const mcs150Date = getVal('MCS-150 Form Date:');
+  const mcs150Mileage = getVal('MCS-150 Mileage (Year):');
+  const outOfServiceDate = getVal('Out of Service Date:');
+  const dunsNumber = getVal('DUNS Number:');
 
-  const extract = (pattern: RegExp): string => {
-    const match = information.match(pattern);
-    return match && match[1] ? match[1].trim() : '';
-  };
-
-  const dotNumber = extract(/USDOT Number:(.*?)State Carrier ID Number/);
+  // Fallback to text extraction if table mapping failed for DOT (unlikely but safe)
+  if (!dotNumber) {
+    const info = center.innerText || center.textContent || '';
+    const match = info.match(/USDOT Number:\s*(\d+)/);
+    if (match) return scrapeRealCarrier(mcNumber, useProxy); // Retry once or handle
+  }
 
   return {
     mcNumber,
-    dotNumber,
-    legalName: extract(/Legal Name:(.*?)DBA/),
-    dbaName: extract(/DBA Name:(.*?)Physical Address/),
-    entityType,
-    status: status.replace(/(\*Please Note)[\s\S]*/i, '').trim(),
-    email: '', // Requires separate SMS fetch in real implementation
-    phone: extract(/Phone:(.*?)Mailing Address/),
-    powerUnits: extract(/Power Units:(.*?)Drivers/),
-    drivers: extract(/Drivers:(.*?)MCS-150 Form Date/),
-    physicalAddress: extract(/Physical Address:(.*?)Phone/),
-    mailingAddress: extract(/Mailing Address:(.*?)USDOT/),
-    dateScraped: crawlDate,
-    mcs150Date: extract(/MCS-150 Form Date:(.*?)MCS/),
-    mcs150Mileage: extract(/MCS-150 Mileage \(Year\):(.*?)(?:Operation Classification|$)/).replace('Operation Classification:', '').trim(),
+    dotNumber: dotNumber || 'UNKNOWN',
+    legalName: legalName || 'NOT FOUND',
+    dbaName: dbaName,
+    entityType: entityType || 'CARRIER',
+    status: status || 'NOT AUTHORIZED',
+    email: '', // Not provided on the safer snapshot page directly
+    phone: phone || 'N/A',
+    powerUnits: powerUnits || '0',
+    drivers: drivers || '0',
+    physicalAddress: physicalAddress || 'N/A',
+    mailingAddress: mailingAddress || 'N/A',
+    dateScraped: new Date().toLocaleDateString('en-US'),
+    mcs150Date: mcs150Date || 'N/A',
+    mcs150Mileage: mcs150Mileage || 'N/A',
     operationClassification: findMarkedLabels(doc, "Operation Classification"),
     carrierOperation: findMarkedLabels(doc, "Carrier Operation"),
     cargoCarried: findMarkedLabels(doc, "Cargo Carried"),
-    outOfServiceDate: extract(/Out of Service Date:(.*?)Legal Name/),
-    stateCarrierId: '',
-    dunsNumber: extract(/DUNS Number:(.*?)Power Units/)
+    outOfServiceDate: outOfServiceDate,
+    stateCarrierId: getVal('State Carrier ID Number:'),
+    dunsNumber: dunsNumber
   };
 };
 
 export const downloadCSV = (data: CarrierData[]) => {
-  const headers = ['Date', 'MC', 'DOT', 'Legal_Name', 'Insurance_Policies'];
+  const headers = ['Date', 'MC', 'DOT', 'Legal_Name', 'Status', 'Insurance_Policies'];
   const csvRows = data.map(row => [
     row.dateScraped,
     row.mcNumber,
     row.dotNumber,
     `"${row.legalName.replace(/"/g, '""')}"`,
+    `"${row.status.replace(/"/g, '""')}"`,
     `"${(row.insurancePolicies || []).map(p => `${p.carrier}:${p.policyNumber}`).join(' | ')}"`
   ]);
 
@@ -183,6 +201,6 @@ export const downloadCSV = (data: CarrierData[]) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = `export_${Date.now()}.csv`;
+  link.download = `fmcsa_export_${Date.now()}.csv`;
   link.click();
 };
