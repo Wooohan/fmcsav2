@@ -57,4 +57,4 @@ export interface User {
   isOnline: boolean;
 }
 
-export type ViewState = 'dashboard' | 'scraper' | 'subscription' | 'settings' | 'admin';
+export type ViewState = 'dashboard' | 'scraper' | 'carrier-search' | 'subscription' | 'settings' | 'admin';
