@@ -26,11 +26,7 @@ export const CarrierSearch: React.FC<CarrierSearchProps> = ({ carriers, onUpdate
     try {
       const policies = await scrapeInsuranceData(selectedCarrier.dotNumber);
       const updatedCarrier = { ...selectedCarrier, insurancePolicies: policies };
-      
-      // Update local state for modal
       setSelectedCarrier(updatedCarrier);
-      
-      // Update global state in App.tsx
       const globalUpdated = carriers.map(c => 
         c.mcNumber === selectedCarrier.mcNumber ? updatedCarrier : c
       );
@@ -47,7 +43,7 @@ export const CarrierSearch: React.FC<CarrierSearchProps> = ({ carriers, onUpdate
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-6 gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-white mb-1">Carrier Database</h1>
-          <p className="text-sm text-slate-400">Manage {carriers.length} extracted FMCSA records.</p>
+          <p className="text-sm text-slate-400">Manage {carriers.length} extracted records.</p>
         </div>
         <div className="flex gap-3 w-full md:w-auto">
           <button 
@@ -55,7 +51,7 @@ export const CarrierSearch: React.FC<CarrierSearchProps> = ({ carriers, onUpdate
             disabled={filteredCarriers.length === 0}
             className="flex-1 md:flex-none flex items-center justify-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-xl text-sm font-medium transition-all"
           >
-            <Download size={16} /> Export Results
+            <Download size={16} /> Export Batch
           </button>
         </div>
       </div>
@@ -86,37 +82,43 @@ export const CarrierSearch: React.FC<CarrierSearchProps> = ({ carriers, onUpdate
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-800">
-              {filteredCarriers.map((carrier, idx) => (
-                <tr key={idx} className="hover:bg-indigo-500/5 group transition-colors">
-                  <td className="p-4 md:p-5 font-mono text-indigo-400 font-bold">{carrier.mcNumber}</td>
-                  <td className="p-4 md:p-5">
-                    <div className="font-semibold text-white truncate max-w-[200px]">{carrier.legalName}</div>
-                  </td>
-                  <td className="p-4 md:p-5">
-                    {carrier.insurancePolicies ? (
-                      <span className="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20">
-                        {carrier.insurancePolicies.length} Verified
-                      </span>
-                    ) : (
-                      <span className="text-[10px] text-slate-600 italic">Unverified</span>
-                    )}
-                  </td>
-                  <td className="p-4 md:p-5">
-                    <div className={`flex items-center gap-2 ${carrier.status.includes('NOT AUTHORIZED') ? 'text-red-400' : 'text-green-400'}`}>
-                      <ShieldCheck size={14} className="shrink-0" />
-                      <span className="text-[10px] font-medium truncate max-w-[100px]">{carrier.status}</span>
-                    </div>
-                  </td>
-                  <td className="p-4 md:p-5 text-right">
-                    <button 
-                      onClick={() => setSelectedCarrier(carrier)}
-                      className="p-2 bg-slate-700/50 hover:bg-green-600 text-green-400 hover:text-white rounded-lg transition-all"
-                    >
-                      <Eye size={16} />
-                    </button>
-                  </td>
+              {filteredCarriers.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="p-20 text-center text-slate-600">No records found. Run the scraper to populate data.</td>
                 </tr>
-              ))}
+              ) : (
+                filteredCarriers.map((carrier, idx) => (
+                  <tr key={idx} className="hover:bg-indigo-500/5 group transition-colors">
+                    <td className="p-4 md:p-5 font-mono text-indigo-400 font-bold">{carrier.mcNumber}</td>
+                    <td className="p-4 md:p-5">
+                      <div className="font-semibold text-white truncate max-w-[200px]">{carrier.legalName}</div>
+                    </td>
+                    <td className="p-4 md:p-5">
+                      {carrier.insurancePolicies ? (
+                        <span className="text-[10px] bg-green-500/10 text-green-400 px-2 py-0.5 rounded border border-green-500/20">
+                          {carrier.insurancePolicies.length} Verified
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-slate-600 italic">Unverified</span>
+                      )}
+                    </td>
+                    <td className="p-4 md:p-5">
+                      <div className={`flex items-center gap-2 ${carrier.status.includes('NOT AUTHORIZED') ? 'text-red-400' : 'text-green-400'}`}>
+                        <ShieldCheck size={14} className="shrink-0" />
+                        <span className="text-[10px] font-medium truncate max-w-[100px]" title={carrier.status}>{carrier.status}</span>
+                      </div>
+                    </td>
+                    <td className="p-4 md:p-5 text-right">
+                      <button 
+                        onClick={() => setSelectedCarrier(carrier)}
+                        className="p-2 bg-slate-700/50 hover:bg-green-600 text-green-400 hover:text-white rounded-lg transition-all"
+                      >
+                        <Eye size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -128,22 +130,22 @@ export const CarrierSearch: React.FC<CarrierSearchProps> = ({ carriers, onUpdate
             
             <div className="p-5 md:p-8 border-b border-slate-800 bg-slate-800/50 flex justify-between items-start">
               <div className="flex gap-4 md:gap-6 items-start">
-                <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white shrink-0">
+                <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-xl">
                   <Truck className="w-6 h-6 md:w-8 md:h-8" />
                 </div>
                 <div>
-                  <h2 className="text-xl md:text-3xl font-bold text-white mb-1">{selectedCarrier.legalName}</h2>
-                  <div className="flex gap-2">
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] uppercase font-black ${selectedCarrier.status.includes('NOT AUTHORIZED') ? 'bg-red-500' : 'bg-green-500'}`}>
+                  <h2 className="text-xl md:text-3xl font-bold text-white mb-1 truncate max-w-xs md:max-w-md">{selectedCarrier.legalName}</h2>
+                  <div className="flex flex-wrap gap-2">
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] uppercase font-black tracking-tighter ${selectedCarrier.status.includes('NOT AUTHORIZED') ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`}>
                       {selectedCarrier.status}
                     </span>
                     {selectedCarrier.insurancePolicies && (
-                      <span className="bg-indigo-500 px-2 py-0.5 rounded-full text-[9px] uppercase font-black">Insured</span>
+                      <span className="bg-indigo-500 text-white px-2 py-0.5 rounded-full text-[9px] uppercase font-black tracking-tighter">Policies Found</span>
                     )}
                   </div>
                 </div>
               </div>
-              <button onClick={() => setSelectedCarrier(null)} className="p-2 text-slate-400 hover:text-white"><X size={24} /></button>
+              <button onClick={() => setSelectedCarrier(null)} className="p-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl transition-colors"><X size={24} /></button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 md:p-8 custom-scrollbar">
@@ -151,28 +153,48 @@ export const CarrierSearch: React.FC<CarrierSearchProps> = ({ carriers, onUpdate
                 
                 <div className="space-y-6">
                   <section>
-                    <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3"><Hash size={14} className="inline mr-1" /> IDs</h3>
+                    <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <Hash size={14} className="text-indigo-400" /> IDENTIFICATION
+                    </h3>
                     <div className="space-y-2 bg-slate-800/30 p-4 rounded-xl border border-slate-800 text-[11px] md:text-xs">
-                      <div className="flex justify-between"><span className="text-slate-500">MC#</span><span className="text-white font-mono">{selectedCarrier.mcNumber}</span></div>
-                      <div className="flex justify-between"><span className="text-slate-500">DOT#</span><span className="text-white font-mono">{selectedCarrier.dotNumber}</span></div>
+                      <div className="flex justify-between items-center"><span className="text-slate-500">MC/MX#</span><span className="text-white font-mono font-bold">{selectedCarrier.mcNumber}</span></div>
+                      <div className="flex justify-between items-center"><span className="text-slate-500">DOT#</span><span className="text-white font-mono font-bold">{selectedCarrier.dotNumber || 'N/A'}</span></div>
+                      <div className="flex justify-between items-center"><span className="text-slate-500">DUNS#</span><span className="text-white font-mono">{selectedCarrier.dunsNumber || '--'}</span></div>
                     </div>
                   </section>
                   <section>
-                    <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3"><Phone size={14} className="inline mr-1" /> Contact</h3>
-                    <div className="space-y-2 bg-slate-800/30 p-4 rounded-xl border border-slate-800 text-[11px] md:text-xs overflow-hidden">
-                       <div className="text-white truncate">{selectedCarrier.phone}</div>
-                       <div className="text-indigo-400 truncate break-all">{selectedCarrier.email || 'No email found'}</div>
+                    <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <Phone size={14} className="text-indigo-400" /> CONTACT
+                    </h3>
+                    <div className="space-y-3 bg-slate-800/30 p-4 rounded-xl border border-slate-800 text-[11px] md:text-xs overflow-hidden">
+                       <div className="flex items-center gap-2"><Phone size={12} className="text-slate-500" /><span className="text-white truncate">{selectedCarrier.phone || 'No Phone'}</span></div>
+                       <div className="flex items-start gap-2"><Mail size={12} className="text-slate-500 mt-0.5 shrink-0" /><span className="text-indigo-400 truncate break-all leading-tight">{selectedCarrier.email || 'No email registered'}</span></div>
                     </div>
                   </section>
                 </div>
 
                 <div className="space-y-6">
                   <section>
-                    <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3"><Calendar size={14} className="inline mr-1" /> Compliance</h3>
-                    <div className="space-y-3 bg-slate-800/30 p-4 rounded-xl border border-slate-800 text-[10px] md:text-[11px]">
-                      <div><div className="text-slate-500 mb-0.5">MCS-150 DATE</div><div className="text-white font-bold">{selectedCarrier.mcs150Date}</div></div>
-                      <div><div className="text-slate-500 mb-0.5">VMT MILEAGE</div><div className="text-white line-clamp-2 leading-tight">{selectedCarrier.mcs150Mileage}</div></div>
-                      <div><div className="text-slate-500 mb-0.5">OOS DATE</div><div className="text-red-400 font-bold">{selectedCarrier.outOfServiceDate || 'NONE'}</div></div>
+                    <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <Calendar size={14} className="text-indigo-400" /> COMPLIANCE
+                    </h3>
+                    <div className="space-y-4 bg-slate-800/30 p-4 rounded-xl border border-slate-800">
+                      <div>
+                        <div className="text-slate-500 text-[9px] uppercase font-bold mb-1">MCS-150 DATE</div>
+                        <div className="text-white font-bold text-xs">{selectedCarrier.mcs150Date || 'N/A'}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500 text-[9px] uppercase font-bold mb-1">VMT MILEAGE</div>
+                        <div className="bg-slate-900/50 p-2 rounded text-[10px] text-slate-300 leading-snug border border-slate-700/50">
+                          {selectedCarrier.mcs150Mileage || 'No recent mileage data'}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500 text-[9px] uppercase font-bold mb-1">OOS DATE</div>
+                        <div className={`text-[11px] font-black ${selectedCarrier.outOfServiceDate ? 'text-red-400' : 'text-slate-600'}`}>
+                          {selectedCarrier.outOfServiceDate || 'NONE REGISTERED'}
+                        </div>
+                      </div>
                     </div>
                   </section>
                 </div>
@@ -180,37 +202,39 @@ export const CarrierSearch: React.FC<CarrierSearchProps> = ({ carriers, onUpdate
                 <div className="space-y-6">
                   <section>
                     <div className="flex justify-between items-center mb-3">
-                      <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest"><Shield size={14} className="inline mr-1" /> Insurance</h3>
+                      <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2">
+                        <Shield size={14} className="text-indigo-400" /> INSURANCE
+                      </h3>
                       {!selectedCarrier.insurancePolicies && (
                         <button 
                           onClick={handleFetchInsurance}
                           disabled={isFetchingInsurance}
-                          className="text-[9px] bg-indigo-600 hover:bg-indigo-500 px-2 py-0.5 rounded text-white font-bold flex items-center gap-1"
+                          className="text-[9px] bg-indigo-600 hover:bg-indigo-500 px-2 py-0.5 rounded text-white font-bold flex items-center gap-1 transition-all"
                         >
                           {isFetchingInsurance ? <Loader2 size={10} className="animate-spin" /> : <Shield size={10} />}
-                          FETCH DATA
+                          FETCH
                         </button>
                       )}
                     </div>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                    <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar">
                       {selectedCarrier.insurancePolicies ? (
                         selectedCarrier.insurancePolicies.map((p, i) => (
-                          <div key={i} className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-[10px]">
+                          <div key={i} className="bg-slate-950 p-3 rounded-lg border border-slate-800 text-[10px] animate-in slide-in-from-right-2 duration-300">
                             <div className="flex justify-between font-bold mb-1">
                               <span className="text-green-400">{p.type}</span>
                               <span className="text-indigo-400">${Number(p.coverageAmount).toLocaleString()}</span>
                             </div>
-                            <div className="text-white mb-0.5">{p.carrier}</div>
-                            <div className="flex justify-between text-slate-500 italic">
+                            <div className="text-white mb-0.5 truncate">{p.carrier}</div>
+                            <div className="flex justify-between text-slate-500 italic text-[9px]">
                               <span>#{p.policyNumber}</span>
                               <span>Eff: {p.effectiveDate}</span>
                             </div>
                           </div>
                         ))
                       ) : (
-                        <div className="p-8 text-center border-2 border-dashed border-slate-800 rounded-xl">
-                          <Shield size={24} className="mx-auto text-slate-700 mb-2 opacity-20" />
-                          <p className="text-[10px] text-slate-600">Verification Required</p>
+                        <div className="p-8 text-center border-2 border-dashed border-slate-800 rounded-xl opacity-40">
+                          <Shield size={24} className="mx-auto text-slate-700 mb-2" />
+                          <p className="text-[10px] text-slate-600">Deep Data Not Loaded</p>
                         </div>
                       )}
                     </div>
@@ -220,9 +244,9 @@ export const CarrierSearch: React.FC<CarrierSearchProps> = ({ carriers, onUpdate
               </div>
             </div>
 
-            <div className="p-6 bg-slate-950/50 border-t border-slate-800 flex justify-end gap-4">
-              <button onClick={() => setSelectedCarrier(null)} className="px-6 py-2 bg-slate-800 text-white rounded-xl text-sm font-medium">Close</button>
-              <button className="px-6 py-2 bg-indigo-600 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 flex items-center gap-2">
+            <div className="p-4 md:p-6 bg-slate-950/50 border-t border-slate-800 flex justify-end gap-3 md:gap-4">
+              <button onClick={() => setSelectedCarrier(null)} className="px-6 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-sm font-medium transition-colors">Close</button>
+              <button className="px-6 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-indigo-500/20 flex items-center gap-2 transition-all">
                 <Download size={16} /> Export Profile
               </button>
             </div>
