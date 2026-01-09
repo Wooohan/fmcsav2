@@ -1,7 +1,7 @@
 
-import { CarrierData, User, InsurancePolicy } from '../types';
+import { CarrierData, User } from '../types';
 
-// === MOCK DATA GENERATION ===
+// === MOCK DATA GENERATION (Fallback/Demo) ===
 const FIRST_NAMES = ['Logistics', 'Freight', 'Transport', 'Carrier', 'Hauling', 'Shipping', 'Express', 'Roadway'];
 const LAST_NAMES = ['Solutions', 'LLC', 'Inc', 'Group', 'Systems', 'Lines', 'Brothers', 'Global'];
 const CITIES = ['Chicago', 'Dallas', 'Atlanta', 'Los Angeles', 'Miami', 'New York'];
@@ -42,57 +42,133 @@ export const generateMockCarrier = (mcNumber: string, isBroker: boolean): Carrie
   };
 };
 
+// === ADMIN / USER MOCK DATA ===
+
 export const MOCK_USERS: User[] = [
-  { id: '1', name: 'Admin User', email: 'wooohan3@gmail.com', role: 'admin', plan: 'Enterprise', dailyLimit: 100000, recordsExtractedToday: 450, lastActive: 'Now', ipAddress: '192.168.1.1', isOnline: true },
-  { id: '2', name: 'John Doe', email: 'john@logistics.com', role: 'user', plan: 'Pro', dailyLimit: 5000, recordsExtractedToday: 1240, lastActive: '5m ago', ipAddress: '45.22.19.112', isOnline: true }
+  {
+    id: '1',
+    name: 'Admin User',
+    email: 'wooohan3@gmail.com',
+    role: 'admin',
+    plan: 'Enterprise',
+    dailyLimit: 100000,
+    recordsExtractedToday: 450,
+    lastActive: 'Now',
+    ipAddress: '192.168.1.1',
+    isOnline: true
+  },
+  {
+    id: '2',
+    name: 'John Doe',
+    email: 'john@logistics.com',
+    role: 'user',
+    plan: 'Pro',
+    dailyLimit: 5000,
+    recordsExtractedToday: 1240,
+    lastActive: '5m ago',
+    ipAddress: '45.22.19.112',
+    isOnline: true
+  },
+  {
+    id: '3',
+    name: 'Sarah Smith',
+    email: 'sarah@shipping.net',
+    role: 'user',
+    plan: 'Starter',
+    dailyLimit: 1000,
+    recordsExtractedToday: 980,
+    lastActive: '2h ago',
+    ipAddress: '67.11.90.221',
+    isOnline: false
+  },
+  {
+    id: '4',
+    name: 'Mike Ross',
+    email: 'mike@ross.com',
+    role: 'user',
+    plan: 'Pro',
+    dailyLimit: 5000,
+    recordsExtractedToday: 42,
+    lastActive: 'Now',
+    ipAddress: '98.12.33.11',
+    isOnline: true
+  }
 ];
 
-// === INSURANCE SCRAPER SERVICE ===
+// === REAL SCRAPER IMPLEMENTATION ===
 
-export const checkUserInsuranceAccess = async (email: string) => {
-  await new Promise(r => setTimeout(r, 800));
-  return { status: 1, limit: 10000, downloads: 150 };
-};
-
-export const scrapeInsuranceData = async (dotNumber: string): Promise<InsurancePolicy[]> => {
-  await new Promise(r => setTimeout(r, 1200));
-  const carriers = ['Progressive', 'Berkshire Hathaway', 'Old Republic', 'Travelers', 'Geico Commercial', 'Zurich Insurance'];
-  const types = ['BIPD', 'Cargo', 'Bond', 'Liability'];
-  const count = randomInt(1, 3);
-  const policies: InsurancePolicy[] = [];
-  for (let i = 0; i < count; i++) {
-    policies.push({
-      carrier: carriers[randomInt(0, carriers.length - 1)],
-      policyNumber: `POL-${randomInt(100000, 999999)}`,
-      effectiveDate: `01/15/2024`,
-      coverageAmount: `${randomInt(100, 1000) * 1000}`,
-      type: types[randomInt(0, types.length - 1)],
-      class: 'P'
-    });
+// Helper to decode Cloudflare email protection
+const cfDecodeEmail = (encoded: string): string => {
+  try {
+    let email = "";
+    const r = parseInt(encoded.substr(0, 2), 16);
+    for (let n = 2; n < encoded.length; n += 2) {
+      const c = parseInt(encoded.substr(n, 2), 16) ^ r;
+      email += String.fromCharCode(c);
+    }
+    return email;
+  } catch (e) {
+    console.error("Error decoding CF email", e);
+    return "";
   }
-  return policies;
 };
 
-// === FMCSA SCRAPER HELPERS ===
+const getTextWithSpaces = (element: Element | null): string => {
+  if (!element) return '';
+  let text = '';
+  element.childNodes.forEach(node => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      text += (node.nodeValue || '').trim() + ' ';
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const tagName = (node as Element).tagName.toLowerCase();
+      if (tagName !== 'script' && tagName !== 'style') {
+        text += getTextWithSpaces(node as Element);
+      }
+    }
+  });
+  return text.replace(/\s+/g, ' ').trim();
+};
 
 const fetchUrl = async (targetUrl: string, useProxy: boolean): Promise<string | null> => {
+  // If user disables proxy (VPN mode), try direct fetch first
   if (!useProxy) {
     try {
       const response = await fetch(targetUrl);
-      if (response.ok) return await response.text();
-    } catch (error) { return null; }
+      if (response.ok) {
+        return await response.text();
+      }
+    } catch (error) {
+      console.warn("Direct fetch failed (likely CORS). Switching to fallback if available.", error);
+      return null;
+    }
   }
 
+  // Proxy Strategy
   const proxyGenerators = [
     (url: string) => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`
+    (url: string) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+    (url: string) => `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
   ];
 
   for (const generateProxyUrl of proxyGenerators) {
     try {
-      const response = await fetch(generateProxyUrl(targetUrl));
-      if (response.ok) return await response.text();
-    } catch (error) {}
+      const proxyUrl = generateProxyUrl(targetUrl);
+      const response = await fetch(proxyUrl);
+      
+      if (!response.ok) {
+        continue;
+      }
+
+      if (proxyUrl.includes('api.allorigins.win/get')) {
+        const data = await response.json();
+        if (data.contents) return data.contents;
+      } else {
+        const text = await response.text();
+        if (text && text.length > 0) return text;
+      }
+    } catch (error) {
+      // Continue to next proxy
+    }
   }
   return null;
 };
@@ -100,25 +176,72 @@ const fetchUrl = async (targetUrl: string, useProxy: boolean): Promise<string | 
 const findMarkedLabels = (doc: Document, summary: string): string[] => {
   const table = doc.querySelector(`table[summary="${summary}"]`);
   if (!table) return [];
+  
   const labels: string[] = [];
   const cells = table.querySelectorAll('td');
   cells.forEach(cell => {
     if (cell.textContent?.trim() === 'X') {
       const nextSibling = cell.nextElementSibling;
-      if (nextSibling) labels.push(nextSibling.textContent?.trim() || '');
+      if (nextSibling) {
+        labels.push(nextSibling.textContent?.trim() || '');
+      }
     }
   });
   return labels;
 };
 
-/**
- * Robustly finds the value associated with a specific label in SAFER's table structure.
- */
-const findValueByLabel = (doc: Document, label: string): string => {
-  const ths = Array.from(doc.querySelectorAll('th'));
-  const targetTh = ths.find(th => th.textContent?.replace(/\u00a0/g, ' ').includes(label));
-  if (targetTh && targetTh.nextElementSibling) {
-    return targetTh.nextElementSibling.textContent?.trim().replace(/\u00a0/g, ' ') || '';
+const findDotEmail = async (dotNumber: string, useProxy: boolean): Promise<string> => {
+  if (!dotNumber) return '';
+  const url = `https://ai.fmcsa.dot.gov/SMS/Carrier/${dotNumber}/CarrierRegistration.aspx`;
+  const html = await fetchUrl(url, useProxy);
+  if (!html) return '';
+
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(html, 'text/html');
+  
+  const labels = doc.querySelectorAll('label');
+  for (let i = 0; i < labels.length; i++) {
+    if (labels[i].textContent?.includes('Email:')) {
+      
+      // 1. Check Element Sibling (e.g., <a> tag) for Cloudflare data
+      let elementSibling = labels[i].nextElementSibling;
+      if (elementSibling) {
+        // Check for Cloudflare data attribute directly
+        if (elementSibling.hasAttribute('data-cfemail')) {
+           return cfDecodeEmail(elementSibling.getAttribute('data-cfemail') || '');
+        }
+        // Check children (often the <a> is inside a span or div)
+        const cfChild = elementSibling.querySelector('[data-cfemail]');
+        if (cfChild) {
+           return cfDecodeEmail(cfChild.getAttribute('data-cfemail') || '');
+        }
+        // Fallback to text content if valid and not protected placeholder
+        const text = elementSibling.textContent?.trim();
+        if (text && text.length > 2 && !text.toLowerCase().includes('email protected')) {
+            return text;
+        }
+      }
+
+      // 2. Check Text Node Sibling (if email is just plain text)
+      let next = labels[i].nextSibling;
+      while (next && (next.nodeType !== Node.TEXT_NODE && next.nodeType !== Node.ELEMENT_NODE)) {
+          next = next.nextSibling;
+      }
+
+      if (next) {
+         if (next.nodeType === Node.ELEMENT_NODE) {
+            const el = next as Element;
+             if (el.hasAttribute('data-cfemail')) return cfDecodeEmail(el.getAttribute('data-cfemail') || '');
+             const nested = el.querySelector('[data-cfemail]');
+             if (nested) return cfDecodeEmail(nested.getAttribute('data-cfemail') || '');
+             
+             if (el.textContent?.trim() && !el.textContent.toLowerCase().includes('email protected')) return el.textContent.trim();
+         } else if (next.nodeType === Node.TEXT_NODE) {
+            const val = next.textContent?.trim();
+            if (val && val.length > 2 && !val.toLowerCase().includes('email protected')) return val;
+         }
+      }
+    }
   }
   return '';
 };
@@ -126,81 +249,159 @@ const findValueByLabel = (doc: Document, label: string): string => {
 export const scrapeRealCarrier = async (mcNumber: string, useProxy: boolean): Promise<CarrierData | null> => {
   const url = `https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=MC_MX&query_string=${mcNumber}`;
   const html = await fetchUrl(url, useProxy);
+  
   if (!html) return null;
 
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
-  
-  // Verify if it's a valid carrier snapshot page
   const center = doc.querySelector('center');
+  
   if (!center) return null;
 
-  const getVal = (label: string) => findValueByLabel(doc, label);
+  // Extract Crawl Date
+  let crawlDate = new Date().toLocaleDateString('en-US'); // Default to today
+  const boldTags = doc.querySelectorAll('b');
+  boldTags.forEach(b => {
+    const text = b.textContent || '';
+    if (text.includes('The information below reflects the content')) {
+      const match = text.match(/as of(.*?)\./);
+      if (match && match[1]) {
+        let rawDate = match[1].trim();
+        if (rawDate.length > 15) rawDate = rawDate.split('.')[0];
+        crawlDate = rawDate.trim();
+      }
+    }
+  });
 
-  // Map fields from SAFER Table structure
-  const dotNumber = getVal('USDOT Number:');
-  const legalName = getVal('Legal Name:');
-  const dbaName = getVal('DBA Name:');
-  const entityType = getVal('Entity Type:');
-  const status = getVal('Operating Authority Status:').replace(/(\*Please Note)[\s\S]*/i, '').trim();
-  const phone = getVal('Phone:');
-  const physicalAddress = getVal('Physical Address:');
-  const mailingAddress = getVal('Mailing Address:');
-  const powerUnits = getVal('Power Units:');
-  const drivers = getVal('Drivers:');
-  const mcs150Date = getVal('MCS-150 Form Date:');
-  const mcs150Mileage = getVal('MCS-150 Mileage (Year):');
-  const outOfServiceDate = getVal('Out of Service Date:');
-  const dunsNumber = getVal('DUNS Number:');
+  const information = getTextWithSpaces(center);
 
-  // Fallback to text extraction if table mapping failed for DOT (unlikely but safe)
-  if (!dotNumber) {
-    const info = center.innerText || center.textContent || '';
-    const match = info.match(/USDOT Number:\s*(\d+)/);
-    if (match) return scrapeRealCarrier(mcNumber, useProxy); // Retry once or handle
+  let entityType = '';
+  let status = '';
+  
+  const ths = doc.querySelectorAll('th');
+  ths.forEach(th => {
+    const headerText = th.textContent?.trim() || '';
+    if (headerText === 'Entity Type:') {
+      entityType = th.nextElementSibling?.textContent?.trim() || '';
+    }
+    if (headerText === 'Operating Authority Status:') {
+      status = th.nextElementSibling?.textContent?.trim() || '';
+    }
+  });
+
+  status = status.replace(/(\*Please Note|Please Note|For Licensing)[\s\S]*/i, '').trim();
+  status = status.replace(/\s+/g, ' ').trim();
+
+  const extract = (pattern: RegExp): string => {
+    const match = information.match(pattern);
+    return match && match[1] ? match[1].trim() : '';
+  };
+
+  const legalName = extract(/Legal Name:(.*?)DBA/);
+  const dbaName = extract(/DBA Name:(.*?)Physical Address/);
+  const physicalAddress = extract(/Physical Address:(.*?)Phone/);
+  const phone = extract(/Phone:(.*?)Mailing Address/);
+  const mailingAddress = extract(/Mailing Address:(.*?)USDOT/);
+  const dotNumber = extract(/USDOT Number:(.*?)State Carrier ID Number/);
+  const stateCarrierId = extract(/State Carrier ID Number:(.*?)MC\/MX\/FF Number/);
+  const powerUnits = extract(/Power Units:(.*?)Drivers/);
+  const drivers = extract(/Drivers:(.*?)MCS-150 Form Date/);
+  const mcs150Date = extract(/MCS-150 Form Date:(.*?)MCS/);
+  const mcs150MileageRaw = extract(/MCS-150 Mileage \(Year\):(.*?)(?:Operation Classification|$)/);
+  const mcs150Mileage = mcs150MileageRaw.replace('Operation Classification:', '').trim();
+  const outOfServiceDate = extract(/Out of Service Date:(.*?)Legal Name/);
+  const dunsNumber = extract(/DUNS Number:(.*?)Power Units/);
+
+  const operationClassification = findMarkedLabels(doc, "Operation Classification");
+  const carrierOperation = findMarkedLabels(doc, "Carrier Operation");
+  const cargoCarried = findMarkedLabels(doc, "Cargo Carried");
+
+  let email = '';
+  if (dotNumber) {
+    email = await findDotEmail(dotNumber, useProxy);
+    email = email.replace(/Â|\[|\]/g, '').trim();
+    if (email.toLowerCase().includes('email protected')) {
+        email = ''; 
+    }
   }
 
   return {
     mcNumber,
-    dotNumber: dotNumber || 'UNKNOWN',
-    legalName: legalName || 'NOT FOUND',
-    dbaName: dbaName,
-    entityType: entityType || 'CARRIER',
-    status: status || 'NOT AUTHORIZED',
-    email: '', // Not provided on the safer snapshot page directly
-    phone: phone || 'N/A',
-    powerUnits: powerUnits || '0',
-    drivers: drivers || '0',
-    physicalAddress: physicalAddress || 'N/A',
-    mailingAddress: mailingAddress || 'N/A',
-    dateScraped: new Date().toLocaleDateString('en-US'),
-    mcs150Date: mcs150Date || 'N/A',
-    mcs150Mileage: mcs150Mileage || 'N/A',
-    operationClassification: findMarkedLabels(doc, "Operation Classification"),
-    carrierOperation: findMarkedLabels(doc, "Carrier Operation"),
-    cargoCarried: findMarkedLabels(doc, "Cargo Carried"),
-    outOfServiceDate: outOfServiceDate,
-    stateCarrierId: getVal('State Carrier ID Number:'),
-    dunsNumber: dunsNumber
+    dotNumber,
+    legalName,
+    dbaName,
+    entityType,
+    status,
+    email,
+    phone,
+    powerUnits,
+    drivers,
+    physicalAddress,
+    mailingAddress,
+    dateScraped: crawlDate,
+    mcs150Date,
+    mcs150Mileage,
+    operationClassification,
+    carrierOperation,
+    cargoCarried,
+    outOfServiceDate,
+    stateCarrierId,
+    dunsNumber
   };
 };
 
 export const downloadCSV = (data: CarrierData[]) => {
-  const headers = ['Date', 'MC', 'DOT', 'Legal_Name', 'Status', 'Insurance_Policies'];
+  const headers = [
+    'Date', 'MC', 'Email', 'Entity Type', 'Operating Authority Status', 'Out of Service Date',
+    'Legal_Name', 'DBA Name', 'Physical Address', 'Phone', 'Mailing Address', 'USDOT Number',
+    'State Carrier ID Number', 'Power Units', 'Drivers', 'DUNS Number',
+    'MCS-150 Form Date', 'MCS-150 Mileage (Year)', 'Operation Classification',
+    'Carrier Operation', 'Cargo Carried'
+  ];
+
+  const escape = (val: string | number | undefined) => {
+    if (!val) return '""';
+    const str = String(val).replace(/"/g, '""');
+    return `"${str}"`;
+  };
+
   const csvRows = data.map(row => [
-    row.dateScraped,
+    escape(row.dateScraped),
     row.mcNumber,
-    row.dotNumber,
-    `"${row.legalName.replace(/"/g, '""')}"`,
-    `"${row.status.replace(/"/g, '""')}"`,
-    `"${(row.insurancePolicies || []).map(p => `${p.carrier}:${p.policyNumber}`).join(' | ')}"`
+    escape(row.email),
+    escape(row.entityType),
+    escape(row.status),
+    escape(row.outOfServiceDate),
+    escape(row.legalName), 
+    escape(row.dbaName),
+    escape(row.physicalAddress),
+    escape(row.phone),
+    escape(row.mailingAddress),
+    escape(row.dotNumber),
+    escape(row.stateCarrierId),
+    escape(row.powerUnits),
+    escape(row.drivers),
+    escape(row.dunsNumber),
+    escape(row.mcs150Date),
+    escape(row.mcs150Mileage),
+    escape(row.operationClassification.join(', ')),
+    escape(row.carrierOperation.join(', ')),
+    escape(row.cargoCarried.join(', '))
   ]);
 
-  const csvContent = [headers.join(','), ...csvRows.map(r => r.join(','))].join('\n');
-  const blob = new Blob([csvContent], { type: 'text/csv' });
-  const url = URL.createObjectURL(blob);
+  const csvContent = [
+    headers.join(','),
+    ...csvRows.map(r => r.join(','))
+  ].join('\n');
+
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
   const link = document.createElement('a');
-  link.href = url;
-  link.download = `fmcsa_export_${Date.now()}.csv`;
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', `fmcsa_export_${new Date().toISOString().slice(0,10)}.csv`);
+  link.style.visibility = 'hidden';
+  document.body.appendChild(link);
   link.click();
+  document.body.removeChild(link);
 };
