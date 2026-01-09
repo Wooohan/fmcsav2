@@ -1,12 +1,13 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './pages/Dashboard';
 import { Scraper } from './pages/Scraper';
+import { CarrierSearch } from './pages/CarrierSearch';
 import { Subscription } from './pages/Subscription';
 import { Landing } from './pages/Landing';
 import { AdminPanel } from './pages/AdminPanel';
-import { ViewState, User } from './types';
+import { ViewState, User, CarrierData } from './types';
 import { Settings } from 'lucide-react';
 import { MOCK_USERS } from './services/mockService';
 
@@ -23,6 +24,9 @@ const SettingsPage = () => (
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [user, setUser] = useState<User | null>(null);
+  
+  // Persistence state for all extracted records
+  const [allCarriers, setAllCarriers] = useState<CarrierData[]>([]);
 
   const handleLogin = (userData: User) => {
     setUser(userData);
@@ -54,6 +58,15 @@ const App: React.FC = () => {
     }
   };
 
+  const handleNewCarriers = (newData: CarrierData[]) => {
+    setAllCarriers(prev => {
+      // Prevent duplicates based on MC number
+      const existingMcs = new Set(prev.map(c => c.mcNumber));
+      const filteredNew = newData.filter(c => !existingMcs.has(c.mcNumber));
+      return [...filteredNew, ...prev];
+    });
+  };
+
   const renderContent = () => {
     switch (currentView) {
       case 'dashboard':
@@ -62,8 +75,11 @@ const App: React.FC = () => {
         return <Scraper 
           user={user!} 
           onUpdateUsage={handleUpdateUsage}
+          onNewCarriers={handleNewCarriers}
           onUpgrade={() => setCurrentView('subscription')}
         />;
+      case 'carrier-search':
+        return <CarrierSearch carriers={allCarriers} />;
       case 'subscription':
         return <Subscription />;
       case 'settings':
