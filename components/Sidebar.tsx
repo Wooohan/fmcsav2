@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, Truck, CreditCard, Settings, Terminal, LogOut, ShieldAlert, Database } from 'lucide-react';
+import { LayoutDashboard, Truck, CreditCard, Settings, Terminal, LogOut, ShieldAlert, Database, ShieldCheck } from 'lucide-react';
 import { ViewState, User } from '../types';
 
 interface SidebarProps {
@@ -15,6 +15,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, u
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'scraper', label: 'Live Scraper', icon: Terminal },
     { id: 'carrier-search', label: 'Carrier Database', icon: Database },
+    { id: 'insurance-scraper', label: 'Insurance Center', icon: ShieldCheck },
     { id: 'subscription', label: 'Subscription', icon: CreditCard },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
@@ -50,11 +51,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, u
             >
               <Icon className="w-5 h-5" />
               <span className="font-medium">{item.label}</span>
-              {item.id === 'scraper' && (
+              {(item.id === 'scraper' || item.id === 'insurance-scraper') && (
                 <span className="ml-auto w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-              )}
-              {item.id === 'admin' && (
-                <span className="ml-auto bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded font-bold">ADM</span>
               )}
             </button>
           );
