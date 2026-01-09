@@ -9,10 +9,11 @@ const CONCURRENCY_LIMIT = 5;
 interface ScraperProps {
   user: User;
   onUpdateUsage: (count: number) => void;
+  onNewCarriers: (data: CarrierData[]) => void;
   onUpgrade: () => void;
 }
 
-export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onUpgrade }) => {
+export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onNewCarriers, onUpgrade }) => {
   const [isRunning, setIsRunning] = useState(false);
   const [config, setConfig] = useState<ScraperConfig>({
     startPoint: '1580000',
@@ -73,6 +74,9 @@ export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onUpgrade
     
     // Create an array of tasks
     const tasks = Array.from({ length: total }, (_, i) => (start + i).toString());
+    
+    // Storage for results to send back to parent
+    const successfulResults: CarrierData[] = [];
 
     const worker = async (mc: string) => {
       if (!isRunningRef.current) return;
@@ -93,7 +97,6 @@ export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onUpgrade
            const isBroker = config.includeBrokers && (!config.includeCarriers || Math.random() > 0.5);
            newData = generateMockCarrier(mc, isBroker);
         } else {
-           // No artificial delay for maximum speed
            newData = await scrapeRealCarrier(mc, config.useProxy);
         }
       } catch (e) {
@@ -112,7 +115,6 @@ export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onUpgrade
          if (!config.includeBrokers && isBroker && !isCarrier) matchesFilter = false;
          
          if (config.onlyAuthorized) {
-             // Strict Check: Must include AUTHORIZED and MUST NOT include NOT AUTHORIZED
              if (status.includes('NOT AUTHORIZED') || !status.includes('AUTHORIZED')) {
                  matchesFilter = false;
              }
@@ -120,14 +122,11 @@ export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onUpgrade
 
          if (matchesFilter) {
              setScrapedData(prev => [...prev, newData!]);
+             successfulResults.push(newData!);
              setLogs(prev => [...prev, `[Success] MC ${mc}: ${newData!.legalName}`]);
              
-             // Increment usage
              sessionExtracted++;
              onUpdateUsage(1);
-         } else {
-            // Optional: Reduce log noise for speed
-            // setLogs(prev => [...prev, `[Skipped] MC ${mc}`]);
          }
       } else {
          setLogs(prev => [...prev, `[Fail] MC ${mc} - No Data`]);
@@ -137,7 +136,6 @@ export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onUpgrade
       setProgress(Math.round((completed / total) * 100));
     };
 
-    // Execute with concurrency limit
     const activePromises: Promise<void>[] = [];
     
     for (const mc of tasks) {
@@ -155,9 +153,14 @@ export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onUpgrade
 
     await Promise.all(activePromises);
 
+    // After batch is finished, send all successful data to the global search/database
+    if (successfulResults.length > 0) {
+      onNewCarriers(successfulResults);
+    }
+
     setIsRunning(false);
     isRunningRef.current = false;
-    setLogs(prev => [...prev, "✅ Batch Job Complete."]);
+    setLogs(prev => [...prev, `✅ Batch Job Complete. Found ${successfulResults.length} records.`]);
   };
 
   const handleDownload = () => {
@@ -199,7 +202,7 @@ export const Scraper: React.FC<ScraperProps> = ({ user, onUpdateUsage, onUpgrade
               className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-medium transition-all"
             >
               <Download size={20} />
-              Export CSV
+              Export Batch
             </button>
            )}
           <button
