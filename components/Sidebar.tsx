@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, Truck, CreditCard, Settings, Terminal, LogOut, ShieldAlert } from 'lucide-react';
+import { LayoutDashboard, Truck, CreditCard, Settings, Terminal, LogOut, ShieldAlert, Database } from 'lucide-react';
 import { ViewState, User } from '../types';
 
 interface SidebarProps {
@@ -14,6 +14,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setCurrentView, u
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'scraper', label: 'Live Scraper', icon: Terminal },
+    { id: 'carrier-search', label: 'Carrier Database', icon: Database },
     { id: 'subscription', label: 'Subscription', icon: CreditCard },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
