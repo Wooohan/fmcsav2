@@ -1,13 +1,4 @@
 
-export interface InsurancePolicy {
-  carrier: string;
-  policyNumber: string;
-  effectiveDate: string;
-  coverageAmount: string;
-  type: string;
-  class: string;
-}
-
 export interface CarrierData {
   mcNumber: string;
   dotNumber: string;
@@ -22,6 +13,7 @@ export interface CarrierData {
   physicalAddress: string;
   mailingAddress: string;
   dateScraped: string;
+  // Extended fields from Python script
   mcs150Date: string;
   mcs150Mileage: string;
   operationClassification: string[];
@@ -30,7 +22,6 @@ export interface CarrierData {
   outOfServiceDate: string;
   stateCarrierId: string;
   dunsNumber: string;
-  insurancePolicies?: InsurancePolicy[];
 }
 
 export interface ScraperConfig {
@@ -42,6 +33,16 @@ export interface ScraperConfig {
   useMockData: boolean;
   useProxy: boolean;
 }
+
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  price: string;
+  features: string[];
+  recommended?: boolean;
+}
+
+export type UserRole = 'user' | 'admin';
 
 export interface User {
   id: string;
@@ -56,5 +57,4 @@ export interface User {
   isOnline: boolean;
 }
 
-export type UserRole = 'user' | 'admin';
-export type ViewState = 'dashboard' | 'scraper' | 'carrier-search' | 'insurance-scraper' | 'subscription' | 'settings' | 'admin';
+export type ViewState = 'dashboard' | 'scraper' | 'carrier-search' | 'subscription' | 'settings' | 'admin';
